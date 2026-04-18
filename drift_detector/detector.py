@@ -26,8 +26,8 @@ class DriftDetector:
         self.mu = stats[0]
         self.sigma = stats[1]
 
-        self.drift_threshold = self.mu + 2 * self.sigma
-        self.warning_threshold = self.mu + 1.5 * self.sigma
+        self.drift_threshold = self.mu + 3 * self.sigma
+        self.warning_threshold = self.mu + 2 * self.sigma
 
     def load_or_create_session_memory(self) -> None:
         if os.path.exists(self.session_state_path):
