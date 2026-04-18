@@ -171,8 +171,8 @@ POST /generate-answer
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/hrishikeshChandi/rag-with-drift-detection.git
-cd rag-with-drift-detection
+git clone https://github.com/hrishikeshChandi/semantic-drift-rag.git
+cd semantic-drift-rag
 ```
 
 ### 2. Create Virtual Environment and install the dependencies
@@ -286,7 +286,7 @@ curl -X DELETE http://localhost:8000/session/user123
 ## Project Structure
 
 ```
-rag-with-drift-detection/
+semantic-drift-rag/
 ├── config/
 │   └── constants.py               # Env vars, shared embeddings model singleton
 ├── core/
