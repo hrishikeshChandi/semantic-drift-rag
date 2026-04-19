@@ -84,14 +84,16 @@ class DriftDetector:
 
         final_score = max(query_drift_score, trajectory_drift_score * 0.7)
 
-        if final_score >= self.drift_threshold:
+        if final_score > self.drift_threshold:
             status = "out_of_scope"
             decision = "refuse"
-            reason = "Query is outside the scope of uploaded documents"
-        elif final_score >= self.warning_threshold:
+            reason = "Query is far outside the semantic scope of uploaded documents"
+
+        elif final_score > self.warning_threshold:
             status = "warning"
             decision = "ask_clarification"
-            reason = "Query is partially outside document scope"
+            reason = "Query is near the boundary of document scope"
+
         else:
             status = "ok"
             decision = "answer"
