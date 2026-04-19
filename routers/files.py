@@ -84,12 +84,12 @@ async def delete_files(request: Request, user_id: str):
     if not os.path.exists(user_dir):
         return {"status": "no files"}
 
-    for item in os.listdir(user_dir):
-        item_path = os.path.join(user_dir, item)
+    # for item in os.listdir(user_dir):
+    #     item_path = os.path.join(user_dir, item)
 
-        if os.path.isfile(item_path) or os.path.islink(item_path):
-            os.remove(item_path)
-        elif os.path.isdir(item_path):
-            shutil.rmtree(item_path)
-
+    #     if os.path.isfile(item_path) or os.path.islink(item_path):
+    #         os.remove(item_path)
+    #     elif os.path.isdir(item_path):
+    #         shutil.rmtree(item_path)
+    shutil.rmtree(user_dir)
     return {"status": "deleted"}
