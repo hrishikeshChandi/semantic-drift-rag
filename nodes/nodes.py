@@ -42,23 +42,53 @@ class Nodes:
         )
         state.context = context
         prompt = f"""
-You are a highly capable research assistant. Your task is to answer the user's question based **only** on the provided context.
+You are a highly capable research assistant. Your task is to answer the user's question using ONLY the provided context.
 
-Guidelines
-1. Accuracy: Do not invent facts, assume, or use external knowledge. If the context lacks sufficient information, clearly state that and explain what is missing.
-2. Conciseness: Provide a direct answer first, then briefly show your reasoning (if helpful). Avoid unnecessary repetition.
-3. Source citation: After every factual claim, cite the source using this exact format:  
-   `(Source: 'File Name', page X)`  
-   If multiple sources support the same point, combine them: `(Sources: 'File A', page 2; 'File B', page 5)`.
-4. Uncertainty handling: If the context is ambiguous or contradictory, acknowledge that and present the different possibilities with their respective citations.
-5. No meta‑commentary: Do not write things like “Based on the context provided…” or “As an AI…”. Just answer directly.
+====================
+STRICT RULES (Violation = incorrect answer)
+====================
 
-Context
+1. Grounding (ZERO TOLERANCE)
+- Use ONLY the given context.
+- Do NOT add external knowledge, assumptions, or general facts.
+- If the answer is not fully present, clearly state what is missing.
+
+2. Completeness (CRITICAL)
+- Extract ALL relevant details from the context.
+- If multiple points exist, ALL must be included.
+- Do NOT give short or minimal answers if more information is available.
+
+3. Depth
+- Reflect the richness of the context.
+- Do NOT oversimplify or compress detailed information.
+
+4. Citation (MANDATORY)
+- After EVERY factual statement, include a citation in this format:
+  (Source: 'File Name', page X)
+- If multiple sources apply:
+  (Sources: 'File A', page 2; 'File B', page 5)
+- Citations MUST be inline (not at the end).
+- NEVER say "no citation needed".
+
+5. Uncertainty Handling
+- If the context is incomplete, ambiguous, or contradictory:
+  clearly state the limitation and explain what is missing.
+
+6. Forbidden (AUTOMATIC FAILURE)
+- No hallucination
+- No guessing
+- No meta-commentary (e.g., "Based on the context...")
+- No placeholder text (e.g., "[citation needed]")
+
+====================
+CONTEXT
+====================
 {context}
 
-Question
+====================
+QUESTION
+====================
 {state.question}
-
 """
         if state.suggestion:
             prompt += f"\n\nNote: Previous evaluation suggested: {state.suggestion}\n"
@@ -77,31 +107,64 @@ Question
 
     def evaluate_answer(self, state: State) -> State:
         print("Evaluating the generated answer...")
-        prompt = f"""You are an expert evaluator for a Retrieval-Augmented Generation (RAG) system.
+        prompt = f"""
+You are a strict evaluator for a Retrieval-Augmented Generation (RAG) system.
 
-Your job is to evaluate the quality of an answer based ONLY on the provided context.
+Evaluate the answer using ONLY the provided context.
 
-You must:
-1. Check if the answer is grounded in the context (faithfulness)
-2. Check if it fully answers the question (relevancy)
-3. Check if important information is missing
+====================
+SCORING RUBRIC (Total = 1.0)
+====================
 
-IMPORTANT RULES:
-- Do NOT use external knowledge
-- Do NOT change the intent of the question
-- Suggest improvements ONLY if needed
-- Query refinement should ADD clarity, not change meaning
+Faithfulness (0.3)
+- 0.3 → All claims are supported by context
+- 0.15 → Minor unsupported claim
+- 0.0 → Any hallucination → FAIL
 
-Score guidelines:
-- 0.9–1.0: Perfect answer, fully grounded, complete
-- 0.75–0.89: Mostly correct, minor gaps
-- 0.5–0.74: Partial answer, missing key info
-- 0.0–0.49: Incorrect or not grounded
+Relevance (0.2)
+- 0.2 → Fully answers question
+- 0.1 → Partially answers
+- 0.0 → Off-topic
 
-Output Format (Strict):
+Completeness (0.3) — CRITICAL
+- 0.3 → ALL important details included
+- 0.15 → Some missing details
+- 0.0 → Shallow or incomplete
+
+Depth & Precision (0.2)
+- 0.2 → Detailed and precise
+- 0.1 → Somewhat vague
+- 0.0 → Too short or oversimplified
+
+====================
+STRICT RULES
+====================
+
+- DO NOT use external knowledge
+- DO NOT reward shallow answers
+- If key details are missing → score must be < 0.75
+- If hallucination exists → score = 0.0
+
+====================
+PENALTY RULES
+====================
+
+- If answer is significantly shorter than the amount of information in context → reduce score
+- If citations are missing → subtract 0.2
+- If citations are NOT inline → treat as missing
+- If meta-commentary is present → subtract 0.1
+- If ANY entity or claim is not explicitly present in context → score = 0.0
+
+====================
+OUTPUT FORMAT (STRICT)
+====================
     score: float (0 to 1)
     suggestion: string
     refined_query: string
+
+====================
+INPUT
+====================
 
 Context:
 {state.context}
@@ -110,13 +173,14 @@ Question:
 {state.question}
 
 Answer:
-{state.answer}"""
+{state.answer}
+"""
         response = self.evaluator.invoke(prompt)
         state.retries += 1
         state.score = response.score
         state.suggestion = response.suggestion
         state.refined_query = response.refined_query
-        state.is_good = state.score >= 0.75
+        state.is_good = state.score >= 0.8
 
         print(state)
         return state
