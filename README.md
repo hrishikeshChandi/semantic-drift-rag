@@ -196,6 +196,9 @@ HF_TOKEN=your_huggingface_token
 MODULE = "main:app"
 HOST = "127.0.0.1"
 PORT = 8000
+
+LOG_LEVEL=INFO  # DEBUG, INFO, WARNING, ERROR
+LOG_FILE=logs/app.log
 ```
 
 ---
@@ -239,7 +242,7 @@ API docs available at `http://localhost:8000/docs`
 
 | Method   | Endpoint           | Description                           | Rate Limit |
 | -------- | ------------------ | ------------------------------------- | ---------- |
-| `POST`   | `/upload`          | Upload documents and build index      | 15/min     |
+| `POST`   | `/files/upload`    | Upload documents and build index      | 15/min     |
 | `GET`    | `/files/{user_id}` | List uploaded files for a user        | Unlimited  |
 | `DELETE` | `/files/{user_id}` | Delete all files and index for a user | 15/min     |
 
@@ -257,7 +260,7 @@ API docs available at `http://localhost:8000/docs`
 ### Upload a document
 
 ```bash
-curl -X POST http://localhost:8000/upload \
+curl -X POST http://localhost:8000/files/upload \
   -F "user_id=user123" \
   -F "files=@document.pdf"
 ```
@@ -300,6 +303,7 @@ semantic-drift-rag/
 │   └── constants.py               # Env vars, shared embeddings model singleton
 ├── core/
 │   └── limiter.py                 # Rate limiter setup
+│   └── logging_config.py          # Logger setup
 ├── document_ingestion/
 │   └── processor.py               # DocumentProcessor — PDF, TXT, URL, directory loading and chunking
 ├── drift_detector/
