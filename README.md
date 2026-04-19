@@ -216,9 +216,18 @@ PORT = 8000
 
 ## Running the System
 
-```bash
-uv run main.py
-```
+1. Start the backend:
+
+   ```bash
+   uv run main.py
+   ```
+
+2. Start the frontend:
+
+   ```bash
+   cd frontend/
+   npx serve .
+   ```
 
 API docs available at `http://localhost:8000/docs`
 
