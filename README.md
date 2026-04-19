@@ -90,8 +90,8 @@ Documents are processed in five steps when uploaded:
 
 The adaptive thresholds are set as:
 
-- Warning threshold: `μ + 2σ`
-- Drift threshold: `μ + 3σ`
+- Warning threshold: `μ + 2.5σ`
+- Drift threshold: `μ + 3.5σ`
 
 These thresholds are not hardcoded — they reflect the actual semantic density of whatever was uploaded. Upload five documents, get thresholds for those five. Upload two more and the thresholds update automatically.
 
@@ -114,13 +114,13 @@ For queries that pass the drift check:
 ```
 retriever → responder → evaluator → (router)
                 ↑                       |
-                └── retry if score < 0.75 (max 3 retries)
+                └── retry if score < 0.8 (max 3 retries)
 ```
 
 - **Retriever** — fetches top-4 chunks using the hybrid FAISS + BM25 ensemble. On retry, uses the evaluator's refined query
 - **Responder** — Qwen3 80B generates a grounded answer with source citations. Previous evaluator suggestions are injected into the prompt on retry
 - **Evaluator** — Llama 3.3 70B scores the answer (0–1) for faithfulness and relevance using structured output. Produces a `score`, `suggestion`, and `refined_query`
-- **Router** — exits the loop when `score >= 0.75` or after 3 retries, whichever comes first
+- **Router** — exits the loop when `score >= 0.8` or after 3 retries, whichever comes first
 
 ### Task Lifecycle
 
@@ -321,8 +321,8 @@ semantic-drift-rag/
   The semantic space of embedding models like all-MiniLM-L6-v2 is not uniformly distributed. A fixed threshold (e.g., 0.35) may fail across different datasets — either never triggering or over-triggering depending on corpus density.
 
   Instead, this system computes the distribution of embedding distances from the corpus centroid and derives thresholds using Z-score based calibration:
-  - μ + 2σ → boundary (warning zone)
-  - μ + 3σ → out-of-scope (hard rejection)
+  - μ + 2.5σ → boundary (warning zone)
+  - μ + 3.5σ → out-of-scope (hard rejection)
 
   This creates a soft decision boundary:
   - Queries near the boundary are still allowed (with warnings)
