@@ -31,7 +31,8 @@ app.add_middleware(SlowAPIMiddleware)
 @app.delete("/session/{user_id}")
 async def delete_session(request: Request, user_id: str):
     index_path = os.path.join(UPLOAD_ROOT, user_id, "faiss_index")
-    vs = VectorStore(index_path=index_path)
+    if not os.path.exists(index_path):
+        return {"message": f"No session found for user_id {user_id}. Nothing to reset."}
     detector = DriftDetector(index_path=index_path)
     detector.reset_session()
     return {"message": f"Session for user_id {user_id} has been reset."}
