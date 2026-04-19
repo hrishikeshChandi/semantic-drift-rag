@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Semantic Drift RAG Console</title>
+    <meta
+      name="description"
+      content="Production-ready frontend for Semantic Drift RAG with chat, uploads, and drift analytics."
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"
+      defer
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"
+      defer
+    ></script>
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-grid"></div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <div id="app" class="app sidebar-open">
+      <header class="topbar glass">
+        <div class="brand-wrap">
+          <div class="brand-icon">
+            <i class="fa-solid fa-compass-drafting"></i>
+          </div>
+          <div>
+            <h1>Semantic Drift RAG</h1>
+            <p class="subtitle">
+              Grounded answers with live drift intelligence
+            </p>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <div class="user-chip" title="Current backend user identifier">
+            <span class="chip-label">User ID</span>
+            <span id="userIdText" class="chip-id">-</span>
+            <button
+              id="copyUserIdBtn"
+              class="icon-btn"
+              type="button"
+              aria-label="Copy user ID"
+            >
+              <i class="fa-regular fa-copy"></i>
+            </button>
+          </div>
+
+          <button
+            id="openUploadBtn"
+            class="icon-btn"
+            type="button"
+            title="Upload files"
+          >
+            <i class="fa-solid fa-file-arrow-up"></i>
+            <span>Upload</span>
+          </button>
+
+          <button
+            id="resetSessionBtn"
+            class="icon-btn"
+            type="button"
+            title="Reset drift session"
+          >
+            <i class="fa-solid fa-rotate"></i>
+            <span>Reset Session</span>
+          </button>
+
+          <button
+            id="deleteFilesBtn"
+            class="icon-btn warn"
+            type="button"
+            title="Delete all uploaded files"
+          >
+            <i class="fa-regular fa-trash-can"></i>
+            <span>Delete Files</span>
+          </button>
+
+          <button
+            id="resetUserIdBtn"
+            class="icon-btn danger"
+            type="button"
+            title="Generate new user ID and clear local data"
+          >
+            <i class="fa-solid fa-user-slash"></i>
+            <span>Reset User ID</span>
+          </button>
+
+          <button
+            id="themeToggleBtn"
+            class="icon-btn"
+            type="button"
+            title="Toggle dark/light theme"
+          >
+            <i class="fa-regular fa-sun"></i>
+          </button>
+
+          <button
+            id="sidebarToggleBtn"
+            class="icon-btn"
+            type="button"
+            title="Toggle metrics sidebar"
+          >
+            <i class="fa-solid fa-chart-simple"></i>
+          </button>
+        </div>
+      </header>
+
+      <div class="main-layout">
+        <main class="chat-panel glass">
+          <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+
+          <div
+            id="typingIndicator"
+            class="typing-indicator hidden"
+            aria-live="assertive"
+          >
+            <span class="spinner"></span>
+            <span>Generating answer...</span>
+          </div>
+
+          <form id="chatForm" class="chat-form">
+            <textarea
+              id="chatInput"
+              rows="1"
+              placeholder="Ask about your uploaded documents..."
+              maxlength="5000"
+              required
+            ></textarea>
+            <button id="sendBtn" type="submit" class="send-btn">
+              <i class="fa-solid fa-paper-plane"></i>
+              <span>Send</span>
+            </button>
+          </form>
+        </main>
+
+        <aside
+          id="metricsSidebar"
+          class="metrics-sidebar glass"
+          aria-label="Evaluation and drift sidebar"
+        >
+          <div class="sidebar-header">
+            <h2>Evaluation Metrics</h2>
+            <button
+              id="closeSidebarBtn"
+              class="icon-btn"
+              type="button"
+              title="Close sidebar"
+            >
+              <i class="fa-solid fa-angles-right"></i>
+            </button>
+          </div>
+
+          <div class="sidebar-scroll">
+            <section class="metric-card emphasis">
+              <div class="metric-head">
+                <span class="metric-label">Answer Score</span>
+                <span id="scoreText" class="metric-value">N/A</span>
+              </div>
+              <div class="progress-track" aria-label="Answer score progress">
+                <div
+                  id="scoreBar"
+                  class="progress-fill"
+                  style="width: 0%"
+                ></div>
+              </div>
+            </section>
+
+            <section class="metric-grid">
+              <div class="metric-item">
+                <span>Retries</span>
+                <strong id="retriesValue">N/A</strong>
+              </div>
+              <div class="metric-item">
+                <span>Confidence</span>
+                <strong id="confidenceValue">N/A</strong>
+              </div>
+            </section>
+
+            <section class="metric-card">
+              <h3>Refined Query</h3>
+              <p id="refinedQueryText">N/A</p>
+            </section>
+
+            <section class="metric-card">
+              <h3>Suggestion</h3>
+              <p id="suggestionText">N/A</p>
+            </section>
+
+            <section class="metric-card">
+              <h3>Drift Status</h3>
+              <div class="badge-row">
+                <span id="driftStatusBadge" class="status-badge neutral"
+                  >N/A</span
+                >
+                <span id="decisionBadge" class="decision-badge neutral"
+                  >N/A</span
+                >
+              </div>
+              <p id="driftReasonText">No drift analysis yet.</p>
+            </section>
+
+            <section class="metric-grid three-col">
+              <div class="metric-item">
+                <span>Query Drift</span>
+                <strong id="queryDriftValue">N/A</strong>
+              </div>
+              <div class="metric-item">
+                <span>Trajectory Drift</span>
+                <strong id="trajectoryDriftValue">N/A</strong>
+              </div>
+              <div class="metric-item">
+                <span>Final Score</span>
+                <strong id="finalDriftValue">N/A</strong>
+              </div>
+              <div class="metric-item">
+                <span>History Length</span>
+                <strong id="historyLengthValue">N/A</strong>
+              </div>
+            </section>
+
+            <details class="raw-details">
+              <summary>Raw drift payload</summary>
+              <pre id="rawDriftJson">{}</pre>
+            </details>
+          </div>
+        </aside>
+      </div>
+
+      <button
+        id="mobileSidebarBtn"
+        class="mobile-sidebar-btn"
+        type="button"
+        title="Open metrics"
+      >
+        <i class="fa-solid fa-wave-square"></i>
+      </button>
+    </div>
+
+    <div
+      id="uploadModal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="uploadModalTitle"
+    >
+      <div class="modal-backdrop" data-close-modal="true"></div>
+      <div class="modal-card glass">
+        <header class="modal-header">
+          <h2 id="uploadModalTitle">Manage Documents</h2>
+          <button
+            id="closeUploadModalBtn"
+            class="icon-btn"
+            type="button"
+            title="Close upload dialog"
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </header>
+
+        <div class="modal-body">
+          <form id="uploadForm" class="upload-form">
+            <label for="fileInput" class="file-input-wrap">
+              <input
+                id="fileInput"
+                type="file"
+                accept=".pdf,.txt,.zip"
+                multiple
+              />
+              <span
+                ><i class="fa-solid fa-folder-plus"></i> Choose PDF / TXT / ZIP
+                files</span
+              >
+            </label>
+            <div id="selectedFilesText" class="muted">No files selected</div>
+
+            <div class="upload-progress">
+              <div
+                id="uploadSpinnerWrap"
+                class="upload-spinner-wrap hidden"
+                aria-live="polite"
+              >
+                <span class="spinner upload-spinner"></span>
+                <span id="uploadSpinnerText"
+                  >Uploading and indexing documents...</span
+                >
+              </div>
+            </div>
+
+            <div class="upload-actions">
+              <button
+                id="uploadSubmitBtn"
+                type="submit"
+                class="icon-btn primary"
+              >
+                <i class="fa-solid fa-upload"></i>
+                <span>Upload Files</span>
+              </button>
+              <button id="refreshFilesBtn" type="button" class="icon-btn">
+                <i class="fa-solid fa-arrows-rotate"></i>
+                <span>Refresh</span>
+              </button>
+            </div>
+          </form>
+
+          <section class="files-section">
+            <div class="files-header">
+              <h3>Uploaded Files</h3>
+              <button
+                id="modalDeleteFilesBtn"
+                type="button"
+                class="icon-btn warn"
+              >
+                <i class="fa-regular fa-trash-can"></i>
+                <span>Delete All</span>
+              </button>
+            </div>
+            <ul id="filesList" class="files-list"></ul>
+          </section>
+
+          <div id="uploadStatus" class="status-line" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
