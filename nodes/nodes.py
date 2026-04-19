@@ -1,8 +1,8 @@
+import os
 from state.rag_state import State
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
-
 
 class Nodes:
     def __init__(self, retriever, llm, evaluator, user_id: str):
@@ -35,7 +35,7 @@ class Nodes:
         context = "\n\n".join(
             [
                 f"""Page content: {doc.page_content}
-                File name: {doc.metadata.get("source", "Unknown")}
+                File name: {os.path.basename(doc.metadata.get("source", "Unknown"))}
                 Page number: {doc.metadata.get("page", "Unknown")}"""
                 for doc in state.docs
             ]
