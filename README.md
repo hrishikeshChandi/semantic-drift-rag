@@ -226,7 +226,7 @@ PORT = 8000
 
    ```bash
    cd frontend/
-   npx serve .
+   python -m http.server 8080
    ```
 
 API docs available at `http://localhost:8000/docs`
@@ -304,6 +304,10 @@ semantic-drift-rag/
 │   └── processor.py               # DocumentProcessor — PDF, TXT, URL, directory loading and chunking
 ├── drift_detector/
 │   └── detector.py                # DriftDetector — centroid tracking, Z-score thresholds, session memory
+├── frontend/                      # Frontend files
+│   └── index.html
+│   └── script.js
+│   └── style.css
 ├── graph_builder/
 │   └── builder.py                 # LangGraph pipeline construction
 ├── llm/
