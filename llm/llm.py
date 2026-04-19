@@ -7,8 +7,8 @@ logger = get_logger(__name__)
 
 logger.info("Initializing LLMs...")
 llm = init_chat_model(
-    "openrouter:qwen/qwen3-next-80b-a3b-instruct:free",
-    # "groq:llama-3.1-8b-instant",
+    # "openrouter:qwen/qwen3-next-80b-a3b-instruct:free",
+    "groq:llama-3.1-8b-instant",
     temperature=0.6,
 )
 

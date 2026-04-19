@@ -64,6 +64,19 @@ class DriftDetector:
             self.session_state["query_history"].append(query)
             self.session_state["drift_scores"].append(score)
 
+            # Prune to last 20 queries to prevent unbounded growth
+            max_history = 20
+            if len(self.session_state["query_embeddings"]) > max_history:
+                self.session_state["query_embeddings"] = self.session_state[
+                    "query_embeddings"
+                ][-max_history:]
+                self.session_state["query_history"] = self.session_state[
+                    "query_history"
+                ][-max_history:]
+                self.session_state["drift_scores"] = self.session_state["drift_scores"][
+                    -max_history:
+                ]
+
             with open(self.session_state_path, "w") as f:
                 json.dump(self.session_state, f)
 

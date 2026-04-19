@@ -125,7 +125,7 @@ retriever → responder → evaluator → (router)
 ### Task Lifecycle
 
 ```
-POST /upload → [chunk → embed → FAISS + BM25 → centroid + stats] → ready
+POST /files/upload → [chunk → embed → FAISS + BM25 → centroid + stats] → ready
 
 POST /generate-answer
     → DriftDetector.analyze()
@@ -189,31 +189,39 @@ source .venv/bin/activate # Linux/macOS
 Create a `.env` file in the root directory:
 
 ```env
-GROQ_API_KEY=your_groq_api_key
-OPENROUTER_API_KEY=your_openrouter_api_key
-HF_TOKEN=your_huggingface_token
+# API Configuration
+HOST=127.0.0.1
+PORT=8000
+MODULE=main:app
+UPLOAD_ROOT=data
 
-MODULE = "main:app"
-HOST = "127.0.0.1"
-PORT = 8000
+# API Keys
+GROQ_API_KEY=your_groq_api_key_here
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+HF_TOKEN=your_huggingface_token_here
 
-LOG_LEVEL=INFO  # DEBUG, INFO, WARNING, ERROR
-LOG_FILE=logs/app.log
+# Logging Configuration
+LOG_LEVEL=INFO           # DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_FILE=logs/app.log    # File path for logs
+CONSOLE_LOGS=false       # Set to true to see logs in terminal (development only)
 ```
 
 ---
 
 ## Configuration
 
-| Variable             | Default     | Description                             |
-| -------------------- | ----------- | --------------------------------------- |
-| `HOST`               | `127.0.0.1` | Server host                             |
-| `PORT`               | `8000`      | Server port                             |
-| `MODULE`             | `main:app`  | Uvicorn module string                   |
-| `UPLOAD_ROOT`        | `data`      | Root directory for user data            |
-| `GROQ_API_KEY`       | —           | Groq API key for evaluator model        |
-| `OPENROUTER_API_KEY` | —           | OpenRouter API key for generation model |
-| `HF_TOKEN`           | —           | Hugging Face token for embeddings model |
+| Variable             | Default     | Description                                                                 |
+| -------------------- | ----------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `HOST`               | `127.0.0.1` | Server host                                                                 |
+| `PORT`               | `8000`      | Server port                                                                 |
+| `MODULE`             | `main:app`  | Uvicorn module string                                                       |
+| `UPLOAD_ROOT`        | `data`      | Root directory for user data                                                |
+| `GROQ_API_KEY`       | —           | Groq API key for evaluator model                                            |
+| `OPENROUTER_API_KEY` | —           | OpenRouter API key for generation model                                     |
+| `HF_TOKEN`           | —           | Hugging Face token for embeddings model                                     |
+| `LOG_LEVEL`          | INFO        | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)                       |
+| `LOG_FILE`           | —           | Path to log file (e.g., logs/app.log). If not set, file logging is disabled |
+| `CONSOLE_LOGS`       | false       |                                                                             | Whether to print logs to terminal/console. Set to true for development, false for production |
 
 ---
 
@@ -321,7 +329,7 @@ semantic-drift-rag/
 ├── nodes/
 │   └── nodes.py                   # Retriever, Responder, Evaluator node logic
 ├── routers/
-│   └── files.py                   # /upload, /files endpoints
+│   └── files.py                   # files endpoints
 ├── state/
 │   └── rag_state.py               # LangGraph state schema (Pydantic)
 ├── vectorstore/

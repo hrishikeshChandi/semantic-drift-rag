@@ -1,10 +1,8 @@
 import os
 import json
-from langchain_core import documents
 import numpy as np
 from typing import List, Optional
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers.ensemble import EnsembleRetriever
@@ -174,5 +172,5 @@ class VectorStore:
         return self.retriever
 
     def retrieve(self, query: str) -> List[Document]:
-        logger.debug(f"🔍 Retrieving documents for query: {query}")
+        logger.debug(f"Retrieving documents for query: {query}")
         return self.get_retriever().invoke(query)

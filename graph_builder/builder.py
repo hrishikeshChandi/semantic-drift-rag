@@ -1,3 +1,4 @@
+import time
 from langgraph.graph import StateGraph, START, END
 from state.rag_state import State
 from nodes.nodes import Nodes
@@ -38,9 +39,12 @@ class GraphBuilder:
         return self.graph
 
     def run(self, question: str) -> dict:
+        start_time = time.time()
         if not self.graph:
             self.build()
-
         initial_state = State(question=question)
         logger.debug(f"Running the graph with initial state: {initial_state}")
-        return self.graph.invoke(initial_state)
+        result = self.graph.invoke(initial_state)
+        elapsed = time.time() - start_time
+        logger.info(f"Pipeline completed in {elapsed:.2f}s")
+        return result

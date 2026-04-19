@@ -8,8 +8,8 @@ from pathlib import Path
 def setup_logging(
     level: str = "INFO",
     log_file: Optional[str] = None,
+    console_output: bool = False,
 ) -> None:
-
     log_level = getattr(logging, level.upper(), logging.INFO)
 
     if log_file:
@@ -18,16 +18,16 @@ def setup_logging(
 
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
-
     root_logger.handlers.clear()
 
     formatter = logging.Formatter(
         "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s", datefmt="%H:%M:%S"
     )
 
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    root_logger.addHandler(console_handler)
+    if console_output:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
 
     if log_file:
         file_handler = logging.FileHandler(log_file, encoding="utf-8")

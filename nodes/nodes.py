@@ -1,4 +1,4 @@
-import os
+import os, time
 from state.rag_state import State
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
@@ -110,6 +110,7 @@ QUESTION
         return state
 
     def evaluate_answer(self, state: State) -> State:
+        start_time = time.time()
         logger.info("Evaluating the generated answer...")
         prompt = f"""
 You are a strict evaluator for a Retrieval-Augmented Generation (RAG) system.
@@ -185,8 +186,10 @@ Answer:
         state.suggestion = response.suggestion
         state.refined_query = response.refined_query
         state.is_good = state.score >= 0.8
-
-        # logger.debug(f"Evaluation result: {state}")
+        elapsed = time.time() - start_time
+        logger.info(
+            f"Evaluation completed in {elapsed:.2f}s - Score: {state.score:.3f}"
+        )
         return state
 
     def router(self, state: State):
