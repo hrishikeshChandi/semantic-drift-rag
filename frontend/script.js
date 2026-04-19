@@ -371,7 +371,7 @@ async function uploadFiles(files) {
     formData.append("user_id", state.userId);
     files.forEach((file) => formData.append("files", file));
 
-    return apiRequest("/upload", {
+    return apiRequest("/files/upload", {
         method: "POST",
         body: formData,
     });
