@@ -83,17 +83,14 @@ async def generate_answer(
         }
 
     elif drift_result["decision"] == "ask_clarification":
-        return {
-            "user_id": user_id,
-            "query": query,
-            "answer": "Your question seems to be drifting outside your documents. Could you clarify or rephrase it in context of your uploaded files?",
-            "decision": drift_result["decision"],
-            "confidence": drift_result["confidence"],
-            "drift": drift_result,
-        }
+        drift_warning = drift_result["reason"]
 
     graph = GraphBuilder(retriever, llm, evaluator, user_id=user_id)
     result = graph.run(query)
+
+    if drift_warning:
+        result["warning"] = drift_warning
+        result["answer"] = f"Warning: {drift_warning}\n\n" + result["answer"]
 
     return {
         "user_id": user_id,
