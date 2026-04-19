@@ -1,6 +1,9 @@
 from typing import List
 from pydantic import BaseModel
 from langchain_classic.schema import Document
+from core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class State(BaseModel):
@@ -15,4 +18,4 @@ class State(BaseModel):
     is_good: bool = False
 
 
-print("RAG State model loaded.")
+logger.debug("RAG State model loaded.")

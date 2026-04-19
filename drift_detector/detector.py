@@ -4,6 +4,10 @@ import numpy as np
 from filelock import FileLock
 from config.constants import EMBEDDINGS_MODEL
 
+from core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class DriftDetector:
     def __init__(
@@ -71,6 +75,7 @@ class DriftDetector:
         return centroid / np.linalg.norm(centroid)
 
     def analyze(self, query: str) -> dict:
+        logger.debug(f"Analyzing query: {query}")
         query_vector = self._embed_query(query)
         query_drift_score = self._cosine_distance(query_vector, self.centroid)
         session_centroid = self._session_centroid()
@@ -85,16 +90,23 @@ class DriftDetector:
         final_score = max(query_drift_score, trajectory_drift_score * 0.7)
 
         if final_score > self.drift_threshold:
+            logger.warning(
+                f"Query out of scope. Score: {final_score:.3f} > threshold: {self.drift_threshold:.3f}"
+            )
             status = "out_of_scope"
             decision = "refuse"
             reason = "Query is far outside the semantic scope of uploaded documents"
 
         elif final_score > self.warning_threshold:
+            logger.warning(
+                f"Query near scope boundary. Score: {final_score:.3f} > warning threshold: {self.warning_threshold:.3f}"
+            )
             status = "warning"
             decision = "ask_clarification"
             reason = "Query is near the boundary of document scope"
 
         else:
+            logger.debug(f"Query within scope. Score: {final_score:.3f}")
             status = "ok"
             decision = "answer"
             reason = "Query is within document scope"
@@ -116,6 +128,7 @@ class DriftDetector:
         }
 
     def reset_session(self) -> None:
+        logger.info("Resetting session state")
         self.session_state = {
             "query_embeddings": [],
             "query_history": [],

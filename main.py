@@ -1,4 +1,4 @@
-import uvicorn, os
+import uvicorn, os, time
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from core.limiter import limiter
@@ -11,9 +11,18 @@ from graph_builder.builder import GraphBuilder
 from llm.llm import llm, evaluator
 from drift_detector.detector import DriftDetector
 from routers.files import router as files_router
+from core.logging_config import setup_logging, get_logger
+
+# initialize logging
+setup_logging(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    log_file=os.getenv("LOG_FILE"),
+)
+
+logger = get_logger(__name__)
 
 app = FastAPI()
-app.include_router(files_router)
+app.include_router(files_router, prefix="/files", tags=["files"])
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,7 +54,9 @@ async def generate_answer(
     user_id: str = Form(...),
     query: str = Form(...),
 ):
-    print(f"Received query from user_id: {user_id}: {query}")
+    request_start = time.time()
+    logger.info(f"Received query from user_id: {user_id}: {query}")
+
     user_dir = os.path.join(UPLOAD_ROOT, user_id)
     drift_warning = None
 
@@ -74,6 +85,9 @@ async def generate_answer(
     drift_result = detector.analyze(query)
 
     if drift_result["decision"] == "refuse":
+        logger.warning(
+            f"Query refused for user {user_id}: {query} - Reason: {drift_result['reason']}"
+        )
         return {
             "user_id": user_id,
             "query": query,
@@ -90,8 +104,16 @@ async def generate_answer(
     result = graph.run(query)
 
     if drift_warning:
+        logger.warning(
+            f"Clarification needed for user {user_id}: {query} - Reason: {drift_warning}"
+        )
         result["warning"] = drift_warning
         result["answer"] = f"Warning: {drift_warning}\n\n" + result["answer"]
+
+    total_time = time.time() - request_start
+    logger.info(
+        f"Request completed in {total_time:.2f}s - Decision: {drift_result['decision']}"
+    )
 
     return {
         "user_id": user_id,
@@ -104,5 +126,5 @@ async def generate_answer(
 
 
 if __name__ == "__main__":
-    print(f"Starting server on {HOST}:{PORT} with module {MODULE}")
+    logger.info(f"Starting server on {HOST}:{PORT} with module {MODULE}")
     uvicorn.run(MODULE, host=HOST, port=PORT, reload=True)

@@ -2,15 +2,19 @@ from langgraph.graph import StateGraph, START, END
 from state.rag_state import State
 from nodes.nodes import Nodes
 
+from core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class GraphBuilder:
     def __init__(self, retriever, llm, evaluator, user_id: str):
-        print("Initializing GraphBuilder with retriever, llm, and evaluator...")
+        logger.info("Initializing GraphBuilder with retriever, llm, and evaluator...")
         self.nodes = Nodes(retriever, llm, evaluator, user_id)
         self.graph = None
 
     def build(self):
-        print("Building the graph...")
+        logger.debug("Building the graph...")
         builder = StateGraph(State)
 
         builder.add_node("retriever", self.nodes.retrieve_docs)
@@ -30,7 +34,7 @@ class GraphBuilder:
         )
 
         self.graph = builder.compile()
-        print("Graph built successfully.")
+        logger.debug("Graph built successfully.")
         return self.graph
 
     def run(self, question: str) -> dict:
@@ -38,5 +42,5 @@ class GraphBuilder:
             self.build()
 
         initial_state = State(question=question)
-        print(f"Running the graph with initial state: {initial_state}")
+        logger.debug(f"Running the graph with initial state: {initial_state}")
         return self.graph.invoke(initial_state)

@@ -1,6 +1,9 @@
 from pydantic import BaseModel
+from core.logging_config import get_logger
 
-print("Defining models...")
+logger = get_logger(__name__)
+
+logger.debug("Defining models...")
 
 
 class EvaluatorResponse(BaseModel):
@@ -9,4 +12,4 @@ class EvaluatorResponse(BaseModel):
     suggestion: str
 
 
-print("Models defined.")
+logger.debug("Models defined.")

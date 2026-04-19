@@ -11,10 +11,14 @@ from vectorstore.vectorstore import VectorStore
 from config.constants import UPLOAD_ROOT, HOST, PORT, MODULE
 from graph_builder.builder import GraphBuilder
 from llm.llm import llm, evaluator
-from drift_detector.detector import DriftDetector 
+from drift_detector.detector import DriftDetector
 from fastapi import APIRouter
+from core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
+
 
 @limiter.limit("15/minute")
 @router.post("/upload")
@@ -23,7 +27,9 @@ async def upload_files(
     user_id: str = Form(...),
     files: List[UploadFile] = File(...),
 ):
-    print(f"Received upload request from user_id: {user_id} with {len(files)} files")
+    logger.info(
+        f"Received upload request from user_id: {user_id} with {len(files)} files"
+    )
     user_dir = os.path.join(UPLOAD_ROOT, user_id)
     os.makedirs(user_dir, exist_ok=True)
 
@@ -47,13 +53,17 @@ async def upload_files(
             saved_files.append(file_path)
 
     try:
-        print(f"Processing documents for user_id: {user_id}")
+        logger.info(f"Processing documents for user_id: {user_id}")
         processor = DocumentProcessor()
         documents = processor.load_and_split_documents(saved_files)
         index_path = os.path.join(user_dir, "faiss_index")
         vs = VectorStore(index_path=index_path)
         vs.create_retriever(documents)
     except Exception as e:
+        logger.error(
+            f"Failed to process documents for user {user_id}: {str(e)}",
+            exc_info=True,
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
     return {
@@ -63,9 +73,9 @@ async def upload_files(
     }
 
 
-@router.get("/files/{user_id}")
+@router.get("/{user_id}")
 async def list_files(request: Request, user_id: str):
-    print(f"Received file list request for user_id: {user_id}")
+    logger.info(f"Received file list request for user_id: {user_id}")
     user_dir = os.path.join(UPLOAD_ROOT, user_id)
     if not os.path.exists(user_dir):
         return {"files": []}
@@ -76,9 +86,9 @@ async def list_files(request: Request, user_id: str):
 
 
 @limiter.limit("15/minute")
-@router.delete("/files/{user_id}")
+@router.delete("/{user_id}")
 async def delete_files(request: Request, user_id: str):
-    print(f"Received delete request for user_id: {user_id}")
+    logger.info(f"Received delete request for user_id: {user_id}")
     user_dir = os.path.join(UPLOAD_ROOT, user_id)
 
     if not os.path.exists(user_dir):

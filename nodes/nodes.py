@@ -3,10 +3,14 @@ from state.rag_state import State
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
+from core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class Nodes:
     def __init__(self, retriever, llm, evaluator, user_id: str):
-        print("Initializing nodes...")
+        logger.info("Initializing nodes...")
         self.retriever = retriever
         self.llm = self._wrap_llm_with_history(llm, user_id)
         self.evaluator = evaluator
@@ -22,16 +26,16 @@ class Nodes:
         return RunnableWithMessageHistory(llm, get_session_history)
 
     def retrieve_docs(self, state: State) -> State:
-        print(f"Retrieving documents for question: {state.question}")
+        logger.info(f"Retrieving documents for question: {state.question}")
         query = state.question
         if state.refined_query:
             query = f"{state.question} (Refined query: {state.refined_query})"
         state.docs = self.retriever.invoke(query)
-        print(f"Retrieved {len(state.docs)} documents.")
+        logger.debug(f"Retrieved {len(state.docs)} documents.")
         return state
 
     def generate_answer(self, state: State) -> State:
-        print("Generating answer based on retrieved documents...")
+        logger.info("Generating answer based on retrieved documents...")
         context = "\n\n".join(
             [
                 f"""Page content: {doc.page_content}
@@ -106,7 +110,7 @@ QUESTION
         return state
 
     def evaluate_answer(self, state: State) -> State:
-        print("Evaluating the generated answer...")
+        logger.info("Evaluating the generated answer...")
         prompt = f"""
 You are a strict evaluator for a Retrieval-Augmented Generation (RAG) system.
 
@@ -182,12 +186,12 @@ Answer:
         state.refined_query = response.refined_query
         state.is_good = state.score >= 0.8
 
-        print(state)
+        # logger.debug(f"Evaluation result: {state}")
         return state
 
     def router(self, state: State):
 
-        print(
+        logger.debug(
             f"Routing based on evaluation: is_good={state.is_good}, retries={state.retries}"
         )
 

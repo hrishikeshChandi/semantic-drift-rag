@@ -9,10 +9,14 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_classic.schema import Document
 from pathlib import Path
 
+from core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class DocumentProcessor:
     def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50):
-        print(
+        logger.info(
             f"Initializing DocumentProcessor with chunk_size={chunk_size} and chunk_overlap={chunk_overlap}"
         )
         self.chunk_size = chunk_size
@@ -23,25 +27,25 @@ class DocumentProcessor:
         )
 
     def load_from_url(self, url: str) -> List[Document]:
-        print(f"Loading document from URL: {url}")
+        logger.info(f"Loading document from URL: {url}")
         return WebBaseLoader(url).load()
 
     def load_from_pdf_directory(
         self, directory_path: Union[str, Path]
     ) -> List[Document]:
-        print(f"Loading PDF documents from directory: {directory_path}")
+        logger.info(f"Loading PDF documents from directory: {directory_path}")
         return PyPDFDirectoryLoader(directory_path).load()
 
     def load_from_pdf_file(self, file_path: Union[str, Path]) -> List[Document]:
-        print(f"Loading PDF document from file: {file_path}")
+        logger.info(f"Loading PDF document from file: {file_path}")
         return PyPDFLoader(file_path).load()
 
     def load_from_text_file(self, file_path: Union[str, Path]) -> List[Document]:
-        print(f"Loading text document from file: {file_path}")
+        logger.info(f"Loading text document from file: {file_path}")
         return TextLoader(file_path, encoding="utf-8").load()
 
     def load_documents(self, sources: List[str]) -> List[Document]:
-        print(f"Loading documents from sources: {sources}")
+        logger.info(f"Loading documents from sources: {sources}")
         documents: List[Document] = []
 
         for src in sources:
@@ -59,7 +63,7 @@ class DocumentProcessor:
                     raise ValueError(f"Unsupported file type: {src}")
 
             elif src_path.is_dir():
-                print(f"Scanning directory: {src_path}")
+                logger.debug(f"Scanning directory: {src_path}")
                 for file in src_path.iterdir():
                     if file.suffix.lower() == ".pdf":
                         documents.extend(self.load_from_pdf_file(str(file)))
@@ -72,10 +76,10 @@ class DocumentProcessor:
         return documents
 
     def split_documents(self, documents: List[Document]) -> List[Document]:
-        print(f"Splitting documents into chunks...")
+        logger.debug(f"Splitting documents into chunks...")
         return self.text_splitter.split_documents(documents)
 
     def load_and_split_documents(self, sources: List[str]) -> List[Document]:
         documents = self.load_documents(sources)
-        print(f"Loaded {len(documents)} documents.")
+        logger.info(f"Loaded {len(documents)} documents.")
         return self.split_documents(documents)
