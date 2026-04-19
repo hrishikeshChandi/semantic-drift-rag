@@ -19,7 +19,9 @@ data/
 .DS_Store
 Thumbs.db
 
+logs/
 *.log
+*.log.*
 
 copy-file-content.sh
 all_python_code.txt
