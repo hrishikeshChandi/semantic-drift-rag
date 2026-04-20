@@ -10,9 +10,10 @@ logger = get_logger(__name__)
 
 
 class DriftDetector:
-    def __init__(self, index_path: str):
+    def __init__(self, index_path: str, session_id: str):
         self.index_path = index_path
         self.embeddings_model = EMBEDDINGS_MODEL
+        self.session_id = session_id
 
         cluster_path = os.path.join(index_path, "cluster_centroids.npy")
         centroid_path = os.path.join(index_path, "corpus_centroid.npy")
@@ -29,7 +30,11 @@ class DriftDetector:
                 )
 
         self.session_state = {}
-        self.session_state_path = os.path.join(self.index_path, "session_state.json")
+
+        self.sessions_dir = os.path.join(index_path, "sessions")
+        os.makedirs(self.sessions_dir, exist_ok=True)
+        self.session_state_path = os.path.join(self.sessions_dir, f"{session_id}.json")
+
         self.load_or_create_session_memory()
 
         stats_path = os.path.join(index_path, "corpus_stats.npy")

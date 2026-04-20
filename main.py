@@ -136,14 +136,17 @@ async def health_check():
     }
 
 
-@app.delete("/session/{user_id}")
-async def delete_session(request: Request, user_id: str):
+@app.delete("/session/{user_id}/{session_id}")
+async def delete_session(request: Request, user_id: str, session_id: str):
     index_path = os.path.join(UPLOAD_ROOT, user_id, "faiss_index")
-    if not os.path.exists(index_path):
-        return {"message": f"No session found for user_id {user_id}. Nothing to reset."}
-    detector = DriftDetector(index_path=index_path)
-    detector.reset_session()
-    return {"message": f"Session for user_id {user_id} has been reset."}
+
+    session_file = os.path.join(index_path, "sessions", f"{session_id}.json")
+
+    if os.path.exists(session_file):
+        os.remove(session_file)
+        return {"message": f"Session {session_id} reset."}
+
+    return {"message": "Session not found"}
 
 
 @limiter.limit("15/minute")
@@ -152,7 +155,10 @@ async def generate_answer(
     request: Request,
     user_id: str = Form(...),
     query: str = Form(...),
+    session_id: str = Form(None),
 ):
+    if not session_id:
+        session_id = str(uuid.uuid4())
     request_id = str(uuid.uuid4())[:8]
     request_start = time.time()
     logger.info(f"[{request_id}] Received query from {user_id}: {query[:100]}")
@@ -181,7 +187,7 @@ async def generate_answer(
 
     retriever = vs.get_retriever()
 
-    detector = DriftDetector(index_path=index_path)
+    detector = DriftDetector(index_path=index_path, session_id=session_id)
     drift_result = detector.analyze(query)
 
     if drift_result["decision"] == "refuse":
@@ -201,7 +207,12 @@ async def generate_answer(
         drift_warning = drift_result["reason"]
         logger.info(f"[{request_id}] Query needs clarification: {drift_warning}")
 
-    graph = GraphBuilder(retriever, llm, evaluator, user_id=user_id)
+    graph = GraphBuilder(
+        retriever=retriever,
+        llm=llm,
+        evaluator=evaluator,
+        user_id=f"{user_id}:{session_id}",
+    )
     result = graph.run(query)
 
     if drift_warning:
@@ -215,6 +226,7 @@ async def generate_answer(
 
     return {
         "user_id": user_id,
+        "session_id": session_id,
         "query": query,
         "answer": result,
         "decision": drift_result["decision"],

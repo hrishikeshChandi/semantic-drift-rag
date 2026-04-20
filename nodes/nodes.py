@@ -7,6 +7,8 @@ from core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+GLOBAL_CHAT_STORE = {}
+
 
 class Nodes:
     def __init__(self, retriever, llm, evaluator, user_id: str):
@@ -14,14 +16,13 @@ class Nodes:
         self.retriever = retriever
         self.llm = self._wrap_llm_with_history(llm, user_id)
         self.evaluator = evaluator
-        self.store = {}
         self.user_id = user_id
 
     def _wrap_llm_with_history(self, llm, user_id: str):
         def get_session_history(session_id: str) -> BaseChatMessageHistory:
-            if session_id not in self.store:
-                self.store[session_id] = ChatMessageHistory()
-            return self.store[session_id]
+            if session_id not in GLOBAL_CHAT_STORE:
+                GLOBAL_CHAT_STORE[session_id] = ChatMessageHistory()
+            return GLOBAL_CHAT_STORE[session_id]
 
         return RunnableWithMessageHistory(llm, get_session_history)
 

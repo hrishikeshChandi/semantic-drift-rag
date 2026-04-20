@@ -47,8 +47,9 @@ The second failure mode is largely unaddressed in standard RAG pipelines. This s
 | Hybrid retrieval       | FAISS (dense, 70%) + BM25 (sparse, 30%) ensemble retriever      |
 | Self-correcting loop   | LangGraph pipeline with evaluator that retries up to 3 times    |
 | Source citations       | Every answer includes `(Source: 'filename', page N)` references |
-| Per-user isolation     | Each user has their own FAISS index and session state           |
-| Rate limiting          | 15 requests/minute protection via SlowAPI                       |
+| Per-user isolation     | Each user has their own FAISS index and session directory       |
+| Session isolation      | Each session maintains independent drift and memory             |
+| Multi-session support  | Multiple independent conversations per user (ChatGPT-style)     |
 
 ### Drift Detection
 
@@ -61,6 +62,28 @@ The second failure mode is largely unaddressed in standard RAG pipelines. This s
 | File-safe sessions        | Session state persisted with file locking for concurrent request safety                                      |
 | Multi-centroid clustering | Automatically discovers optimal topic clusters using elbow method; queries evaluated against nearest cluster |
 
+### Session-Based Conversations
+
+This system supports multiple independent sessions per user, similar to modern chat systems.
+
+Each session maintains:
+
+- Independent drift tracking
+- Independent query history (last 20 queries)
+- Independent conversational context
+
+This ensures:
+
+- No cross-contamination between conversations
+- Accurate drift detection per interaction
+- Stable behavior over long usage
+
+### Session Lifecycle
+
+- A session is automatically created if `session_id` is not provided
+- The backend returns a `session_id` in every response
+- The client must reuse this `session_id` to continue the conversation
+
 ---
 
 ## System Architecture
@@ -71,9 +94,15 @@ The system consists of:
 - **VectorStore** — Builds and loads FAISS + BM25 hybrid retriever, computes corpus centroid and Z-score stats on upload
 - **DriftDetector** — Pre-generation scope check using corpus centroid, session centroid, and adaptive Z-score thresholds
 - **LangGraph Pipeline** — Retriever → Responder → Evaluator loop with conditional retry routing
-- **Disk Storage** — Per-user FAISS index, `corpus_centroid.npy`, `corpus_stats.npy`, and `session_state.json`
+- **Disk Storage** — Per-user FAISS index, `corpus_centroid.npy`, `corpus_stats.npy`, and session files under:
 
-**[View System Architecture Diagram](diagrams/system-architecture.png)**
+  ```
+  faiss_index/
+    sessions/
+      <session_id>.json
+  ```
+
+  **[View System Architecture Diagram](diagrams/system-architecture.png)**
 
 ---
 
@@ -260,10 +289,10 @@ API docs available at `http://localhost:8000/docs`
 
 ### Queries
 
-| Method   | Endpoint             | Description                                     | Rate Limit |
-| -------- | -------------------- | ----------------------------------------------- | ---------- |
-| `POST`   | `/generate-answer`   | Query documents with drift detection            | 15/min     |
-| `DELETE` | `/session/{user_id}` | Reset session memory without deleting documents | Unlimited  |
+| Method   | Endpoint                          | Description                                          | Rate Limit |
+| -------- | --------------------------------- | ---------------------------------------------------- | ---------- |
+| `POST`   | `/generate-answer`                | Query documents with drift detection (session-aware) | 15/min     |
+| `DELETE` | `/session/{user_id}/{session_id}` | Reset session memory without deleting documents      | Unlimited  |
 
 ---
 
@@ -282,6 +311,7 @@ curl -X POST http://localhost:8000/files/upload \
 ```bash
 curl -X POST http://localhost:8000/generate-answer \
   -F "user_id=user123" \
+  -F "session_id=abc123" \
   -F "query=What is the main argument of chapter 3?"
 ```
 
@@ -290,6 +320,7 @@ curl -X POST http://localhost:8000/generate-answer \
 ```bash
 curl -X POST http://localhost:8000/generate-answer \
   -F "user_id=user123" \
+  -F "session_id=abc123" \
   -F "query=What is the capital of France?"
 ```
 
@@ -302,7 +333,7 @@ curl http://localhost:8000/files/user123
 ### Reset session memory
 
 ```bash
-curl -X DELETE http://localhost:8000/session/user123
+curl -X DELETE http://localhost:8000/session/<user_id>/<session_id>
 ```
 
 ---
