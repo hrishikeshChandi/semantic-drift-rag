@@ -41,10 +41,14 @@ async def upload_files(
         if file.filename.endswith(".zip"):
             with open(file_path, "wb") as f:
                 shutil.copyfileobj(file.file, f)
-
             with zipfile.ZipFile(file_path, "r") as zip_ref:
                 zip_ref.extractall(user_dir)
-
+                for extracted_file in zip_ref.namelist():
+                    extracted_path = os.path.join(user_dir, extracted_file)
+                    if os.path.isfile(extracted_path) and not extracted_file.endswith(
+                        ".zip"
+                    ):
+                        saved_files.append(extracted_path)
             os.remove(file_path)
         else:
             with open(file_path, "wb") as f:
