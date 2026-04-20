@@ -20,6 +20,63 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+# @limiter.limit("15/minute")
+# @router.post("/upload")
+# async def upload_files(
+#     request: Request,
+#     user_id: str = Form(...),
+#     files: List[UploadFile] = File(...),
+# ):
+#     logger.info(
+#         f"Received upload request from user_id: {user_id} with {len(files)} files"
+#     )
+#     user_dir = os.path.join(UPLOAD_ROOT, user_id)
+#     os.makedirs(user_dir, exist_ok=True)
+
+#     saved_files = []
+
+#     for file in files:
+#         file_path = os.path.join(user_dir, file.filename)
+
+#         if file.filename.endswith(".zip"):
+#             with open(file_path, "wb") as f:
+#                 shutil.copyfileobj(file.file, f)
+#             with zipfile.ZipFile(file_path, "r") as zip_ref:
+#                 zip_ref.extractall(user_dir)
+#                 for extracted_file in zip_ref.namelist():
+#                     extracted_path = os.path.join(user_dir, extracted_file)
+#                     if os.path.isfile(extracted_path) and not extracted_file.endswith(
+#                         ".zip"
+#                     ):
+#                         saved_files.append(extracted_path)
+#             os.remove(file_path)
+#         else:
+#             with open(file_path, "wb") as f:
+#                 shutil.copyfileobj(file.file, f)
+
+#             saved_files.append(file_path)
+
+#     try:
+#         logger.info(f"Processing documents for user_id: {user_id}")
+#         processor = DocumentProcessor()
+#         documents = processor.load_and_split_documents(saved_files)
+#         index_path = os.path.join(user_dir, "faiss_index")
+#         vs = VectorStore(index_path=index_path)
+#         vs.create_retriever(documents)
+#     except Exception as e:
+#         logger.error(
+#             f"Failed to process documents for user {user_id}: {str(e)}",
+#             exc_info=True,
+#         )
+#         raise HTTPException(status_code=500, detail=str(e))
+
+#     return {
+#         "status": "success",
+#         "files": [f.filename for f in files],
+#         "message": "Documents processed and indexed",
+#     }
+
+
 @limiter.limit("15/minute")
 @router.post("/upload")
 async def upload_files(
@@ -30,39 +87,49 @@ async def upload_files(
     logger.info(
         f"Received upload request from user_id: {user_id} with {len(files)} files"
     )
+
     user_dir = os.path.join(UPLOAD_ROOT, user_id)
     os.makedirs(user_dir, exist_ok=True)
 
-    saved_files = []
-
+    # Save uploaded files (same as before)
     for file in files:
         file_path = os.path.join(user_dir, file.filename)
 
         if file.filename.endswith(".zip"):
             with open(file_path, "wb") as f:
                 shutil.copyfileobj(file.file, f)
+
             with zipfile.ZipFile(file_path, "r") as zip_ref:
                 zip_ref.extractall(user_dir)
-                for extracted_file in zip_ref.namelist():
-                    extracted_path = os.path.join(user_dir, extracted_file)
-                    if os.path.isfile(extracted_path) and not extracted_file.endswith(
-                        ".zip"
-                    ):
-                        saved_files.append(extracted_path)
+
             os.remove(file_path)
+
         else:
             with open(file_path, "wb") as f:
                 shutil.copyfileobj(file.file, f)
 
-            saved_files.append(file_path)
-
     try:
-        logger.info(f"Processing documents for user_id: {user_id}")
+        logger.info(f"Processing ALL documents for user_id: {user_id}")
+
         processor = DocumentProcessor()
-        documents = processor.load_and_split_documents(saved_files)
+
+        # scan ALL files (cumulative)
+        all_files = []
+        for root, _, file_list in os.walk(user_dir):
+            for f in file_list:
+                if f.lower().endswith((".pdf", ".txt")):
+                    all_files.append(os.path.join(root, f))
+
+        logger.info(f"Total files for indexing: {len(all_files)}")
+
+        documents = processor.load_and_split_documents(all_files)
+
         index_path = os.path.join(user_dir, "faiss_index")
         vs = VectorStore(index_path=index_path)
+
+        # This already rebuilds fully (as you fixed earlier)
         vs.create_retriever(documents)
+
     except Exception as e:
         logger.error(
             f"Failed to process documents for user {user_id}: {str(e)}",
@@ -73,7 +140,7 @@ async def upload_files(
     return {
         "status": "success",
         "files": [f.filename for f in files],
-        "message": "Documents processed and indexed",
+        "message": "Documents processed and indexed (cumulative)",
     }
 
 

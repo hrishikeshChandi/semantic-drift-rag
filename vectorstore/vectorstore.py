@@ -181,25 +181,46 @@ class VectorStore:
         self._save_stats(vectors, cluster_centroids)
 
     def _create_or_load_db(self, documents: List[Document]):
-        logger.debug(f"Checking for existing FAISS index at {self.index_path}")
-        index_file = os.path.join(self.index_path, "index.faiss")
+        # logger.debug(f"Checking for existing FAISS index at {self.index_path}")
+        # index_file = os.path.join(self.index_path, "index.faiss")
 
-        if os.path.exists(index_file):
-            self.db = FAISS.load_local(
-                self.index_path, self.embeddings, allow_dangerous_deserialization=True
-            )
-            stats_path = os.path.join(self.index_path, "corpus_stats.npy")
-            centroid_path = os.path.join(self.index_path, "corpus_centroid.npy")
-            if not os.path.exists(stats_path) or not os.path.exists(centroid_path):
-                logger.warning("Missing centroid/stats. Recomputing...")
-                self._save_centroid()
-        else:
-            logger.info(f"Creating new FAISS index at {self.index_path}")
-            os.makedirs(self.index_path, exist_ok=True)
-            self.db = FAISS.from_documents(documents, self.embeddings)
-            self.db.save_local(self.index_path)
-            self._save_centroid()
-            self._save_documents(documents)
+        # if os.path.exists(index_file):
+        #     self.db = FAISS.load_local(
+        #         self.index_path, self.embeddings, allow_dangerous_deserialization=True
+        #     )
+        #     stats_path = os.path.join(self.index_path, "corpus_stats.npy")
+        #     centroid_path = os.path.join(self.index_path, "corpus_centroid.npy")
+        #     if not os.path.exists(stats_path) or not os.path.exists(centroid_path):
+        #         logger.warning("Missing centroid/stats. Recomputing...")
+        #         self._save_centroid()
+        # else:
+        #     logger.info(f"Creating new FAISS index at {self.index_path}")
+        #     os.makedirs(self.index_path, exist_ok=True)
+        #     self.db = FAISS.from_documents(documents, self.embeddings)
+        #     self.db.save_local(self.index_path)
+        #     self._save_centroid()
+        #     self._save_documents(documents)
+
+        logger.info(f"Rebuilding FAISS index at {self.index_path}")
+        # Remove old index completely
+        if os.path.exists(self.index_path):
+            import shutil
+
+            shutil.rmtree(self.index_path)
+
+        os.makedirs(self.index_path, exist_ok=True)
+
+        # Build fresh index
+        self.db = FAISS.from_documents(documents, self.embeddings)
+        self.db.save_local(self.index_path)
+
+        # Recompute centroid, clusters, stats
+        self._save_centroid()
+
+        # Save documents (for BM25)
+        self._save_documents(documents)
+
+        logger.info("Index rebuilt successfully")
 
     def create_retriever(self, documents: List[Document], k: int = 4):
         logger.info("Creating retriever with provided documents")
