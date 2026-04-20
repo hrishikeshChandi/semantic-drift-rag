@@ -9,8 +9,12 @@ from langchain_classic.retrievers.ensemble import EnsembleRetriever
 from config.constants import EMBEDDINGS_MODEL
 from filelock import FileLock
 from core.logging_config import get_logger
+from sklearn.cluster import KMeans
+from kneed import KneeLocator
 
 logger = get_logger(__name__)
+
+MIN_CHUNKS_FOR_CLUSTERING = 10
 
 
 class VectorStore:
@@ -55,20 +59,100 @@ class VectorStore:
             for d in docs_data
         ]
 
-        logger.info(f"Loaded {len(documents)} documents from {self.documents_path}")
+        logger.info(f"Loaded {len(documents)} documents")
         return documents
 
-    def _save_stats(self, vectors, centroid):
-        distances = []
-        for vec in vectors:
-            norm = np.linalg.norm(vec)
-            if norm > 0:
-                vec = vec / norm
-            dist = 1 - np.dot(vec, centroid)
-            distances.append(dist)
+    def _find_optimal_k(self, vectors: np.ndarray) -> int:
+        n = vectors.shape[0]
 
-        mu = np.mean(distances)
-        sigma = np.std(distances)
+        if n < MIN_CHUNKS_FOR_CLUSTERING:
+            logger.info(f"Too few vectors ({n}) for clustering, using k=1")
+            return 1
+
+        k_max = max(2, int(np.sqrt(n / 2)))
+
+        if k_max < 2:
+            return 1
+
+        k_values = list(range(1, k_max + 1))
+        wcss = []
+
+        for k in k_values:
+            km = KMeans(n_clusters=k, random_state=42, n_init="auto")
+            km.fit(vectors)
+            wcss.append(km.inertia_)
+
+        if len(wcss) == 1:
+            return 1
+
+        knee = KneeLocator(
+            x=k_values,
+            y=wcss,
+            curve="convex",
+            direction="decreasing",
+            interp_method="interp1d",
+        )
+
+        if knee.knee is not None:
+            optimal_k = knee.knee
+            logger.info(
+                f"KneeLocator found elbow at k={optimal_k} "
+                f"(tested k=1..{k_max}, wcss={[round(w, 2) for w in wcss]})"
+            )
+        else:
+            # kneed couldn't find a clear elbow — fall back to k=2
+            optimal_k = 2
+            logger.warning(
+                f"KneeLocator could not find a clear elbow "
+                f"(tested k=1..{k_max}, wcss={[round(w, 2) for w in wcss]}), "
+                f"falling back to k={optimal_k}"
+            )
+
+        return optimal_k
+
+    def _save_clusters(self, vectors: np.ndarray):
+        norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+        norms = np.where(norms == 0, 1, norms)
+        normalized = vectors / norms
+
+        optimal_k = self._find_optimal_k(normalized)
+
+        if optimal_k == 1:
+            centroid = np.mean(normalized, axis=0)
+            centroid = centroid / np.linalg.norm(centroid)
+            cluster_centroids = centroid[np.newaxis, :]
+        else:
+            logger.info(f"Running final KMeans with optimal k={optimal_k}")
+            kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init="auto")
+            kmeans.fit(normalized)
+            cluster_centroids = kmeans.cluster_centers_
+
+            cc_norms = np.linalg.norm(cluster_centroids, axis=1, keepdims=True)
+            cc_norms = np.where(cc_norms == 0, 1, cc_norms)
+            cluster_centroids = cluster_centroids / cc_norms
+
+        lock = FileLock(os.path.join(self.index_path, "cluster_centroids.lock"))
+        with lock:
+            np.save(
+                os.path.join(self.index_path, "cluster_centroids.npy"),
+                cluster_centroids,
+            )
+        logger.info(f"Saved {optimal_k} cluster centroids")
+
+    def _save_stats(self, vectors: np.ndarray, cluster_centroids: np.ndarray):
+        norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+        norms = np.where(norms == 0, 1, norms)
+        normalized = vectors / norms
+
+        distances = []
+        for vec in normalized:
+            sims = cluster_centroids @ vec
+            nearest_dist = 1 - float(np.max(sims))
+            distances.append(nearest_dist)
+
+        distances = np.array(distances)
+        mu = float(np.mean(distances))
+        sigma = float(np.std(distances))
 
         if sigma < 1e-6:
             sigma = 1e-6
@@ -77,20 +161,24 @@ class VectorStore:
         lock = FileLock(os.path.join(self.index_path, "corpus_stats.lock"))
         with lock:
             np.save(os.path.join(self.index_path, "corpus_stats.npy"), stats)
-        logger.debug(
-            f"Saved stats (mu: {mu:.4f}, sigma: {sigma:.4f}) to {self.index_path}/corpus_stats.npy"
-        )
+        logger.debug(f"Saved stats (mu: {mu:.4f}, sigma: {sigma:.4f})")
 
     def _save_centroid(self):
         index = self.db.index
         vectors = index.reconstruct_n(0, index.ntotal)
+
         centroid = np.mean(vectors, axis=0)
         centroid = centroid / np.linalg.norm(centroid)
-
         lock = FileLock(os.path.join(self.index_path, "centroid.lock"))
         with lock:
             np.save(os.path.join(self.index_path, "corpus_centroid.npy"), centroid)
-        self._save_stats(vectors, centroid)
+
+        self._save_clusters(vectors)
+
+        cluster_centroids = np.load(
+            os.path.join(self.index_path, "cluster_centroids.npy")
+        )
+        self._save_stats(vectors, cluster_centroids)
 
     def _create_or_load_db(self, documents: List[Document]):
         logger.debug(f"Checking for existing FAISS index at {self.index_path}")
