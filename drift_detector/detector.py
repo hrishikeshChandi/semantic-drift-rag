@@ -17,21 +17,25 @@ class DriftDetector:
         cluster_path = os.path.join(index_path, "cluster_centroids.npy")
         centroid_path = os.path.join(index_path, "corpus_centroid.npy")
 
-        if os.path.exists(cluster_path):
-            self.cluster_centroids = np.load(cluster_path)
-            logger.info(f"Loaded {len(self.cluster_centroids)} cluster centroids")
-        else:
-            self.cluster_centroids = np.load(centroid_path)[np.newaxis, :]
-            logger.warning(
-                "No cluster centroids found, falling back to single centroid"
-            )
+        lock = FileLock(cluster_path + ".lock")
+        with lock:
+            if os.path.exists(cluster_path):
+                self.cluster_centroids = np.load(cluster_path)
+                logger.info(f"Loaded {len(self.cluster_centroids)} cluster centroids")
+            else:
+                self.cluster_centroids = np.load(centroid_path)[np.newaxis, :]
+                logger.warning(
+                    "No cluster centroids found, falling back to single centroid"
+                )
 
         self.session_state = {}
         self.session_state_path = os.path.join(self.index_path, "session_state.json")
         self.load_or_create_session_memory()
 
         stats_path = os.path.join(index_path, "corpus_stats.npy")
-        stats = np.load(stats_path)
+        lock = FileLock(stats_path + ".lock")
+        with lock:
+            stats = np.load(stats_path)
         self.mu = stats[0]
         self.sigma = stats[1]
 
