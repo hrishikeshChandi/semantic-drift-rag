@@ -2,6 +2,7 @@ const API_BASE_URL = "http://localhost:8000";
 const STORAGE_KEYS = {
     userId: "semanticRagUserId",
     theme: "semanticRagTheme",
+    sessionId: "semanticRagSessionId",
 };
 const STORAGE_PREFIX = "semanticRag";
 const MAX_MESSAGES = 50;
@@ -9,6 +10,7 @@ const DEFAULT_RATE_LIMIT_SECONDS = 8;
 
 const state = {
     userId: "",
+    sessionId: "",
     messages: [],
     lastMetrics: null,
     sending: false,
@@ -27,6 +29,7 @@ function init() {
     configureMarkdown();
     initializeTheme();
     initializeUserId();
+    initializeSessionId();
     initializeResponsiveLayout();
     bindEvents();
 
@@ -52,6 +55,7 @@ function cacheElements() {
     el.themeToggleBtn = document.getElementById("themeToggleBtn");
 
     el.openUploadBtn = document.getElementById("openUploadBtn");
+    el.newChatBtn = document.getElementById("newChatBtn");
     el.resetSessionBtn = document.getElementById("resetSessionBtn");
     el.deleteFilesBtn = document.getElementById("deleteFilesBtn");
 
@@ -112,6 +116,7 @@ function bindEvents() {
     el.refreshFilesBtn.addEventListener("click", fetchAndRenderFiles);
     el.modalDeleteFilesBtn.addEventListener("click", deleteAllFiles);
 
+    el.newChatBtn.addEventListener("click", startNewChat);
     el.resetSessionBtn.addEventListener("click", resetSession);
     el.deleteFilesBtn.addEventListener("click", deleteAllFiles);
 
@@ -193,6 +198,15 @@ function initializeUserId() {
     updateUserIdDisplay();
 }
 
+function initializeSessionId() {
+    const existingSessionId = localStorage.getItem(STORAGE_KEYS.sessionId);
+    state.sessionId = typeof existingSessionId === "string" ? existingSessionId.trim() : "";
+
+    if (!state.sessionId) {
+        localStorage.removeItem(STORAGE_KEYS.sessionId);
+    }
+}
+
 function generateUserId() {
     if (window.crypto && typeof window.crypto.randomUUID === "function") {
         return window.crypto.randomUUID();
@@ -237,17 +251,29 @@ async function resetUserId() {
     }
 
     const oldUserId = state.userId;
+    const oldSessionId = state.sessionId;
 
     try {
-        await Promise.allSettled([
-            apiRequest(`/session/${encodeURIComponent(oldUserId)}`, { method: "DELETE" }),
+        const cleanupRequests = [
             apiRequest(`/files/${encodeURIComponent(oldUserId)}`, { method: "DELETE" }),
-        ]);
+        ];
+
+        if (oldSessionId) {
+            cleanupRequests.push(
+                apiRequest(
+                    `/session/${encodeURIComponent(oldUserId)}/${encodeURIComponent(oldSessionId)}`,
+                    { method: "DELETE" }
+                )
+            );
+        }
+
+        await Promise.allSettled(cleanupRequests);
     } catch (_error) {
         // Cleanup requests are intentionally best-effort.
     }
 
     clearLocalDataForCurrentApp(oldUserId);
+    clearSessionId();
     applyTheme("dark");
 
     const newUserId = generateUserId();
@@ -271,6 +297,7 @@ async function resetUserId() {
 function clearLocalDataForCurrentApp(oldUserId) {
     localStorage.removeItem(chatStorageKey(oldUserId));
     localStorage.removeItem(metricsStorageKey(oldUserId));
+    localStorage.removeItem(STORAGE_KEYS.sessionId);
 
     const keysToRemove = [];
     for (let index = 0; index < localStorage.length; index += 1) {
@@ -422,13 +449,31 @@ async function deleteAllFiles() {
 }
 
 async function resetSession() {
+    if (!state.sessionId) {
+        showToast("No active session to reset.", "error");
+        return;
+    }
+
     try {
-        await apiRequest(`/session/${encodeURIComponent(state.userId)}`, { method: "DELETE" });
+        await apiRequest(
+            `/session/${encodeURIComponent(state.userId)}/${encodeURIComponent(state.sessionId)}`,
+            { method: "DELETE" }
+        );
+        clearSessionId();
         addMessage("system", "Session drift memory has been reset for this user.");
         showToast("Session reset complete.", "success");
     } catch (error) {
         handleError(error, "reset-session");
     }
+}
+
+function startNewChat() {
+    clearSessionId();
+    state.messages = [];
+    persistChat();
+    renderMessages();
+    showEmptyState();
+    showToast("New chat started.", "success");
 }
 
 function onChatInputChange() {
@@ -471,6 +516,10 @@ async function handleChatSubmit(event) {
         formData.append("user_id", state.userId);
         formData.append("query", query);
 
+        if (state.sessionId) {
+            formData.append("session_id", state.sessionId);
+        }
+
         const payload = await apiRequest("/generate-answer", {
             method: "POST",
             body: formData,
@@ -492,6 +541,11 @@ function setSendingState(sending) {
 }
 
 function processAnswerPayload(payload) {
+    if (!state.sessionId && typeof payload?.session_id === "string" && payload.session_id.trim()) {
+        state.sessionId = payload.session_id.trim();
+        localStorage.setItem(STORAGE_KEYS.sessionId, state.sessionId);
+    }
+
     const answerData = payload ? payload.answer : null;
     const isAnswerObject = answerData && typeof answerData === "object" && !Array.isArray(answerData);
 
@@ -859,6 +913,11 @@ function chatStorageKey(userId) {
 
 function metricsStorageKey(userId) {
     return `${STORAGE_PREFIX}Metrics:${userId}`;
+}
+
+function clearSessionId() {
+    state.sessionId = "";
+    localStorage.removeItem(STORAGE_KEYS.sessionId);
 }
 
 function setUploadLoading(isLoading) {
