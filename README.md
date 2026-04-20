@@ -52,13 +52,14 @@ The second failure mode is largely unaddressed in standard RAG pipelines. This s
 
 ### Drift Detection
 
-| Feature             | Description                                                                |
-| ------------------- | -------------------------------------------------------------------------- |
-| Adaptive thresholds | Derived from Z-score of actual corpus distribution — never hardcoded       |
-| Auto-updating       | Thresholds recompute automatically when new documents are uploaded         |
-| Session trajectory  | Tracks conversation direction over last 20 queries, not just current query |
-| Three-way decision  | Refuse / ask clarification / answer based on drift score                   |
-| File-safe sessions  | Session state persisted with file locking for concurrent request safety    |
+| Feature                   | Description                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Adaptive thresholds       | Derived from Z-score of actual corpus distribution — never hardcoded                                         |
+| Auto-updating             | Thresholds recompute automatically when new documents are uploaded                                           |
+| Session trajectory        | Tracks conversation direction over last 20 queries, not just current query                                   |
+| Three-way decision        | Refuse / ask clarification / answer based on drift score                                                     |
+| File-safe sessions        | Session state persisted with file locking for concurrent request safety                                      |
+| Multi-centroid clustering | Automatically discovers optimal topic clusters using elbow method; queries evaluated against nearest cluster |
 
 ---
 
@@ -99,13 +100,16 @@ These thresholds are not hardcoded — they reflect the actual semantic density 
 
 Before the LLM is called for any query:
 
-1. Query is embedded and its cosine distance from the corpus centroid is computed (`query_drift_score`)
-2. If there are 2+ previous queries in the session, a session centroid is computed. Its distance from the corpus centroid gives the `trajectory_drift_score` — where the conversation is heading, not just where the current query sits
-3. `final_score = max(query_drift_score, trajectory_drift_score × 0.7)`
-4. Final score is compared against the adaptive thresholds:
-   - `final_score >= drift_threshold` → **refuse** — LLM is not called, out-of-scope message returned
-   - `final_score >= warning_threshold` → **ask_clarification** — user is prompted to rephrase
-   - below both → **answer** — proceed to the LangGraph pipeline
+1. Query is embedded using `all-MiniLM-L6-v2`
+2. **Multi-centroid distance** — the system automatically discovers optimal topic clusters (KMeans + elbow method). Query drift = minimum cosine distance to any cluster centroid
+3. If there are 2+ previous queries in the session, a session centroid is computed. Trajectory drift = distance of session centroid to nearest cluster centroid
+4. `final_score = max(query_drift_score, trajectory_drift_score × 0.7)`
+5. Final score is compared against adaptive thresholds:
+   - `final_score >= drift_threshold (μ + 3.5σ)` → **refuse** — LLM not called
+   - `final_score >= warning_threshold (μ + 2.5σ)` → **ask_clarification**
+   - below both → **answer** — proceed to LangGraph
+
+**Why multi-centroid?** A single centroid averages out distinct topics. For a corpus covering ML, CV, and Systems, a query about CNNs would drift from the average, even though CV content exists. Multiple centroids solve this by evaluating against the nearest topic cluster.
 
 ### LangGraph Self-Correcting Loop
 
@@ -354,6 +358,15 @@ semantic-drift-rag/
   - Only clearly out-of-distribution queries are blocked
 
   As new documents are uploaded, μ and σ are recomputed, allowing the system to self-calibrate dynamically to the dataset.
+
+- **Why multi-centroid instead of a single corpus centroid?**
+
+  A single centroid works well for homogeneous document sets but fails when documents cover multiple distinct topics (e.g., ML, CV, Systems). The average centroid would sit in "no man's land", making queries about any specific topic appear as drift.
+
+  This system automatically discovers the optimal number of topic clusters using the elbow method (KneeLocator) and evaluates queries against the nearest cluster centroid. This provides:
+  - Better drift detection for multi-topic corpora
+  - Automatic cluster count selection (no manual tuning)
+  - Graceful fallback to single centroid when insufficient chunks
 
 - **Why track session trajectory?**
 
