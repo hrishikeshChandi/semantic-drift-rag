@@ -90,12 +90,13 @@ async def root():
                     "parameters": {
                         "user_id": "string (required)",
                         "query": "string (required)",
+                        "session_id": "string (optional)",
                     },
                     "rate_limit": "15 requests per minute",
                 },
                 "reset_session": {
                     "method": "DELETE",
-                    "path": "/session/{user_id}",
+                    "path": "/session/{user_id}/{session_id}",
                     "description": "Reset session memory without deleting documents",
                 },
             },
