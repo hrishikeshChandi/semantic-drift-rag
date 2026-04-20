@@ -8,6 +8,7 @@ dependencies = [
     "faiss-cpu>=1.13.2",
     "fastapi>=0.135.3",
     "filelock>=3.25.2",
+    "kneed>=0.8.6",
     "langchain>=1.2.15",
     "langchain-community>=0.4.1",
     "langchain-groq>=1.1.2",
