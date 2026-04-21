@@ -243,18 +243,18 @@ CONSOLE_LOGS=false       # Set to true to see logs in terminal (development only
 
 ## Configuration
 
-| Variable             | Default     | Description                                                                 |
-| -------------------- | ----------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `HOST`               | `127.0.0.1` | Server host                                                                 |
-| `PORT`               | `8000`      | Server port                                                                 |
-| `MODULE`             | `main:app`  | Uvicorn module string                                                       |
-| `UPLOAD_ROOT`        | `data`      | Root directory for user data                                                |
-| `GROQ_API_KEY`       | —           | Groq API key for evaluator model                                            |
-| `OPENROUTER_API_KEY` | —           | OpenRouter API key for generation model                                     |
-| `HF_TOKEN`           | —           | Hugging Face token for embeddings model                                     |
-| `LOG_LEVEL`          | INFO        | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)                       |
-| `LOG_FILE`           | —           | Path to log file (e.g., logs/app.log). If not set, file logging is disabled |
-| `CONSOLE_LOGS`       | false       |                                                                             | Whether to print logs to terminal/console. Set to true for development, false for production |
+| Variable             | Default     | Description                                                                                  |
+| -------------------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `HOST`               | `127.0.0.1` | Server host                                                                                  |
+| `PORT`               | `8000`      | Server port                                                                                  |
+| `MODULE`             | `main:app`  | Uvicorn module string                                                                        |
+| `UPLOAD_ROOT`        | `data`      | Root directory for user data                                                                 |
+| `GROQ_API_KEY`       | —           | Groq API key for evaluator model                                                             |
+| `OPENROUTER_API_KEY` | —           | OpenRouter API key for generation model                                                      |
+| `HF_TOKEN`           | —           | Hugging Face token for embeddings model                                                      |
+| `LOG_LEVEL`          | INFO        | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)                                        |
+| `LOG_FILE`           | —           | Path to log file (e.g., logs/app.log). If not set, file logging is disabled                  |
+| `CONSOLE_LOGS`       | false       | Whether to print logs to terminal/console. Set to true for development, false for production |
 
 ---
 
